@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b5d41">
+<title>{% block title %}CourtBook{% endblock %}</title>
+{% block head %}{% endblock %}
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b5d41'/%3E%3Cpath d='M5 8h22v16H5zM16 8v16M5 12h22M5 20h22' fill='none' stroke='%23fff' stroke-width='1.6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --court: #0b5d41;
+  --court-deep: #07432f;
+  --line: #ffffff;
+  --ball: #e3f26b;
+  --free: #2fb573;
+  --free-deep: #178a52;
+  --free-tint: #d9f4e4;
+  --taken: #c9d1cc;
+  --taken-ink: #47544d;
+  --past-slot: #3c7d65;
+  --past-ink: #a6c9b8;
+  --ground: #f1f6f2;
+  --card: #ffffff;
+  --ink: #10291f;
+  --muted: #55695f;
+  --rule: #d6e1da;
+  --danger: #b3261e;
+  --danger-tint: #fbe4e2;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font: 400 16px/1.45 var(--body);
+}
+h1, h2 { font-family: var(--display); font-weight: 700; line-height: 1.1; margin: 0; }
+h1 { font-size: 30px; }
+h2 { font-size: 22px; margin-bottom: 10px; }
+p { margin: 0; }
+a { color: var(--court); }
+:focus-visible { outline: 3px solid var(--ball); outline-offset: 2px; box-shadow: 0 0 0 5px var(--court-deep); }
+
+/* Header is a strip of painted court with a white boundary line. */
+.site-head {
+  background: var(--court);
+  color: var(--line);
+  padding: calc(10px + env(safe-area-inset-top)) 12px 0;
+  border-bottom: 3px solid var(--line);
+}
+.head-inner { max-width: 856px; margin: 0 auto; }
+.brand {
+  font: italic 700 27px/1 var(--display);
+  letter-spacing: .01em;
+  color: var(--line);
+  text-decoration: none;
+  display: inline-block;
+}
+.brand span { color: var(--ball); }
+.nav { display: flex; margin: 6px -4px 0; }
+.nav a {
+  flex: 1 1 auto;
+  text-align: center;
+  white-space: nowrap;
+  color: #d7ebe0;
+  text-decoration: none;
+  font: 600 16px/1 var(--display);
+  letter-spacing: .02em;
+  padding: 13px 4px 12px;
+  border-bottom: 4px solid transparent;
+}
+.nav a[aria-current="page"] { color: var(--line); border-bottom-color: var(--ball); }
+
+main { max-width: 880px; margin: 0 auto; padding: 16px 12px 40px; }
+.page-title { margin-bottom: 14px; }
+.page-title p { color: var(--muted); margin-top: 2px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+/* Scoreboard tiles: the numbers are the content. */
+.scores { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 14px; }
+.score { background: var(--court-deep); color: var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.score b { display: block; font: 700 34px/1 var(--display); font-variant-numeric: tabular-nums; }
+.score small { display: block; color: #bcd8c9; font-size: 13px; margin-top: 3px; }
+
+table.data { width: 100%; border-collapse: collapse; font-size: 15px; }
+table.data th {
+  text-align: left;
+  font: 600 14px/1.2 var(--display);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 2px solid var(--court);
+  padding: 6px 8px;
+}
+table.data td { padding: 7px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+table.data tr:last-child td { border-bottom: 0; }
+table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
+.scroll-x { overflow-x: auto; }
+
+label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+input {
+  width: 100%;
+  font: 400 16px/1.3 var(--body); /* 16px stops iOS zooming on focus */
+  color: var(--ink);
+  background: var(--line);
+  padding: 11px 12px;
+  border: 1.5px solid #9db3a7;
+  border-radius: 8px;
+}
+.btn {
+  font: 700 18px/1 var(--display);
+  letter-spacing: .02em;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1.5px solid var(--court);
+  background: var(--court);
+  color: var(--line);
+  cursor: pointer;
+}
+.btn.ghost { background: transparent; color: var(--court); }
+.btn.danger { background: transparent; border-color: var(--danger); color: var(--danger); min-height: 40px; font-size: 16px; }
+.btn:disabled { opacity: .55; cursor: default; }
+.error { color: var(--danger); background: var(--danger-tint); border-radius: 6px; padding: 8px 10px; font-size: 15px; }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+[hidden] { display: none !important; }
+
+@media (min-width: 620px) {
+  .scores { grid-template-columns: repeat(4, 1fr); }
+  .nav { max-width: 480px; }
+  h1 { font-size: 36px; }
+}
+{% block styles %}{% endblock %}
+</style>
+</head>
+<body>
+<header class="site-head">
+  <div class="head-inner">
+    <a class="brand" href="{{ url_for('home') }}">Court<span>Book</span></a>
+    <nav class="nav" aria-label="Main">
+      {% for endpoint, label in [('home', 'Book'), ('my_bookings', 'My Bookings'), ('admin', 'Admin'), ('sla', 'SLA'), ('about', 'About')] %}
+      <a href="{{ url_for(endpoint) }}"{% if request.endpoint == endpoint %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

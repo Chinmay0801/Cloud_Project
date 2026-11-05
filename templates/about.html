@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}About · CourtBook{% endblock %}
+{% block content %}
+<div class="page-title">
+  <h1>About CourtBook</h1>
+  <p>Live slot booking for campus courts, running on Azure App Service.</p>
+</div>
+
+<section class="card">
+  <h2>Live deployment</h2>
+  {% if deployment %}
+  <p class="muted small" style="margin-bottom: 6px">Read from Azure App Service by the running app.</p>
+  <table class="data">
+    <tbody>
+    {% for label, value in deployment.items() %}
+      <tr><td>{{ label }}</td><td class="num">{{ value }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Running locally on this computer, not on Azure. Database: {{ db_path }}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Cloud services used</h2>
+  <div class="scroll-x">
+    <table class="data">
+      <thead><tr><th>Purpose</th><th>Azure</th><th>AWS</th><th>GCP</th></tr></thead>
+      <tbody>
+        <tr><td>App hosting</td><td>App Service</td><td>Elastic Beanstalk</td><td>App Engine</td></tr>
+        <tr><td>Database</td><td>SQLite on persistent storage</td><td>RDS</td><td>Cloud SQL</td></tr>
+        <tr><td>Monitoring</td><td>Azure Monitor</td><td>CloudWatch</td><td>Cloud Monitoring</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

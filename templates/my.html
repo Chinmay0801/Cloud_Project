@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}My bookings · CourtBook{% endblock %}
+{% block styles %}
+.lookup { display: flex; gap: 8px; align-items: flex-end; }
+.lookup div { flex: 1; min-width: 0; }
+.booking { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--rule); }
+.booking:last-child { border-bottom: 0; }
+.booking div { flex: 1; min-width: 0; }
+.booking b { display: block; font: 700 20px/1.15 var(--display); }
+{% endblock %}
+{% block content %}
+<div class="page-title">
+  <h1>My bookings</h1>
+  <p>Enter your registration number to see and cancel your slots.</p>
+</div>
+
+<form class="card lookup" id="lookup">
+  <div>
+    <label for="reg">Registration number</label>
+    <input id="reg" autocomplete="off" autocapitalize="characters" maxlength="30" required>
+  </div>
+  <button class="btn" type="submit">Show</button>
+</form>
+
+<p class="error" id="error" role="alert" hidden></p>
+<section class="card" id="results" aria-live="polite" hidden></section>
+{% endblock %}
+{% block scripts %}
+<script>
+const results = document.getElementById('results');
+const errorBox = document.getElementById('error');
+let activeReg = '';
+
+function showError(text) {
+  errorBox.textContent = text;
+  errorBox.hidden = !text;
+}
+
+function renderBooking(booking) {
+  const row = document.createElement('div');
+  row.className = 'booking';
+  const text = document.createElement('div');
+  const court = document.createElement('b');
+  court.textContent = booking.court;
+  const when = document.createElement('span');
+  when.className = 'muted small';
+  when.textContent = `${booking.day} · ${booking.label}`;
+  text.append(court, when);
+  row.append(text);
+  if (booking.cancellable) {
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'btn danger';
+    cancel.textContent = 'Cancel';
+    cancel.setAttribute('aria-label', `Cancel ${booking.court}, ${booking.day}, ${booking.label}`);
+    cancel.addEventListener('click', () => cancelBooking(booking, cancel));
+    row.append(cancel);
+  } else {
+    const done = document.createElement('span');
+    done.className = 'muted small';
+    done.textContent = 'Started';
+    row.append(done);
+  }
+  return row;
+}
+
+async function load() {
+  showError('');
+  try {
+    const response = await fetch('/api/my?reg_no=' + encodeURIComponent(activeReg), { cache: 'no-store' });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      showError(body.error || 'Could not load your bookings – try again');
+      return;
+    }
+    if (body.bookings.length) {
+      results.replaceChildren(...body.bookings.map(renderBooking));
+    } else {
+      const empty = document.createElement('p');
+      empty.className = 'muted';
+      empty.append(`No bookings for ${activeReg}. `);
+      const link = document.createElement('a');
+      link.href = '/';
+      link.textContent = 'Book a court';
+      empty.append(link);
+      results.replaceChildren(empty);
+    }
+    results.hidden = false;
+  } catch (err) {
+    showError('No connection – check your network and try again');
+  }
+}
+
+async function cancelBooking(booking, button) {
+  if (!confirm(`Cancel ${booking.court} on ${booking.day} at ${booking.label}?`)) return;
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: booking.id, reg_no: activeReg }),
+    });
+    if (response.ok) {
+      await load();
+      return;
+    }
+    const body = await response.json().catch(() => ({}));
+    showError(body.error || 'Could not cancel – try again');
+  } catch (err) {
+    showError('No connection – check your network and try again');
+  }
+  button.disabled = false;
+}
+
+document.getElementById('lookup').addEventListener('submit', event => {
+  event.preventDefault();
+  activeReg = document.getElementById('reg').value.trim();
+  if (activeReg) load();
+});
+</script>
+{% endblock %}

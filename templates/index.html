@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block title %}Book a court · CourtBook{% endblock %}
+{% block styles %}
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+.tab {
+  font-family: var(--display);
+  background: var(--card);
+  border: 1.5px solid var(--rule);
+  border-radius: 8px;
+  padding: 7px 4px 6px;
+  color: var(--ink);
+  cursor: pointer;
+  min-width: 0;
+}
+.tab b { display: block; font-size: 18px; font-weight: 700; line-height: 1.1; }
+.tab small { display: block; font-size: 14px; font-weight: 600; color: var(--muted); }
+.tab[aria-pressed="true"] { background: var(--court); border-color: var(--court); color: var(--line); }
+.tab[aria-pressed="true"] small { color: var(--ball); }
+
+.legend { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.key { display: inline-flex; align-items: center; gap: 5px; }
+.key i { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
+.key .k-free { background: var(--free); }
+.key .k-taken { background: var(--taken); }
+.key .k-past { background: var(--past-slot); }
+.live { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.live i { width: 8px; height: 8px; border-radius: 50%; background: var(--free); }
+.live.off i { background: var(--danger); }
+.live.off { color: var(--danger); }
+
+.notice { position: sticky; top: 8px; z-index: 5; margin-bottom: 8px; padding: 9px 12px; border-radius: 8px; font-weight: 500; }
+.notice.good { background: var(--free-tint); color: #0c5534; }
+.notice.bad { background: var(--danger-tint); color: var(--danger); }
+
+/* The grid sits on a green "court" with a white boundary line. */
+.grid-wrap {
+  max-height: max(380px, calc(100dvh - 268px));
+  overflow: auto;
+  background: var(--court);
+  border: 3px solid var(--line);
+  outline: 1px solid var(--court);
+  border-radius: 6px;
+  overscroll-behavior: contain;
+}
+table.grid { border-collapse: separate; border-spacing: 2px; width: 100%; min-width: 336px; table-layout: fixed; }
+.grid th { font-family: var(--display); color: var(--line); background: var(--court); font-weight: 600; }
+.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: 15px;
+  line-height: 1.05;
+  padding: 7px 2px;
+  border-bottom: 2px solid var(--line);
+}
+.grid .corner { width: 58px; left: 0; z-index: 3; }
+.grid tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  font-size: 14px;
+  white-space: nowrap;
+  text-align: right;
+  padding-right: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.grid td { padding: 0; }
+.slot {
+  display: block;
+  width: 100%;
+  height: 44px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 3px;
+  font: 600 14px/1 var(--body);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.slot.free { background: var(--free); color: #042b18; cursor: pointer; }
+.slot.free:active { background: var(--ball); }
+.slot.booked { background: var(--taken); color: var(--taken-ink); }
+.slot.past { background: var(--past-slot); color: var(--past-ink); font-weight: 400; }
+tr.past-row th { color: var(--past-ink); }
+
+dialog {
+  width: min(380px, calc(100vw - 24px));
+  border: 0;
+  border-top: 5px solid var(--free);
+  border-radius: 10px;
+  padding: 16px;
+  color: var(--ink);
+}
+dialog::backdrop { background: rgba(7, 40, 28, .6); }
+dialog h2 { margin-bottom: 2px; }
+.field { margin-top: 12px; }
+.actions { display: flex; gap: 8px; margin-top: 14px; }
+.actions .btn { flex: 1; }
+.form-error { margin-top: 12px; }
+
+@media (hover: hover) { .slot.free:hover { background: #4fcb8c; } }
+@media (min-width: 620px) {
+  .grid thead th { font-size: 17px; }
+  .grid .corner { width: 76px; }
+  .grid tbody th { font-size: 15px; }
+}
+{% endblock %}
+{% block content %}
+<h1 class="page-title">Book a court</h1>
+
+<div class="tabs" id="tabs" role="group" aria-label="Choose a day"></div>
+
+<div class="legend">
+  <span class="key"><i class="k-free"></i>Free</span>
+  <span class="key"><i class="k-taken"></i>Booked</span>
+  <span class="key"><i class="k-past"></i>Past</span>
+  <span class="live" id="live" role="status"><i></i><span id="live-text">Live</span></span>
+</div>
+
+<div class="notice" id="notice" role="alert" hidden></div>
+
+<div class="grid-wrap" id="grid-wrap">
+  <table class="grid">
+    <thead><tr id="grid-head"></tr></thead>
+    <tbody id="grid-body"></tbody>
+  </table>
+</div>
+
+<dialog id="book-dialog" aria-labelledby="book-title">
+  <form id="book-form" method="dialog">
+    <h2 id="book-title"></h2>
+    <p class="muted" id="book-when"></p>
+    <div class="field">
+      <label for="f-name">Name</label>
+      <input id="f-name" autocomplete="name" maxlength="60" required>
+    </div>
+    <div class="field">
+      <label for="f-reg">Registration number</label>
+      <input id="f-reg" autocomplete="off" autocapitalize="characters" maxlength="30" required>
+    </div>
+    <p class="error form-error" id="form-error" role="alert" hidden></p>
+    <div class="actions">
+      <button class="btn ghost" type="button" id="book-cancel">Close</button>
+      <button class="btn" type="submit" id="book-submit">Book slot</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script>
+const POLL_MS = 3000;
+const el = id => document.getElementById(id);
+const wrap = el('grid-wrap');
+const dialog = el('book-dialog');
+
+let selectedDate = null;  // null means "whatever the server calls today"
+let gridKey = null;       // the date the table rows were built for
+let requestId = 0;        // only the newest response may paint the grid
+let pollTimer = null;
+let picked = null;
+let noticeTimer = null;
+
+function showNotice(text, kind) {
+  const box = el('notice');
+  box.textContent = text;
+  box.className = 'notice ' + kind;
+  box.hidden = false;
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => { box.hidden = true; }, 6000);
+}
+
+function renderTabs(data) {
+  const tabs = el('tabs');
+  const current = tabs.dataset.dates;
+  const dates = data.dates.map(d => d.date).join();
+  if (current !== dates) {
+    tabs.dataset.dates = dates;
+    tabs.replaceChildren(...data.dates.map(d => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'tab';
+      button.dataset.date = d.date;
+      const name = document.createElement('b');
+      name.textContent = d.label;
+      const day = document.createElement('small');
+      day.textContent = d.short;
+      button.append(name, day);
+      return button;
+    }));
+  }
+  for (const tab of tabs.children) {
+    tab.setAttribute('aria-pressed', tab.dataset.date === data.date);
+  }
+}
+
+function buildGrid(data) {
+  const corner = document.createElement('th');
+  corner.className = 'corner';
+  corner.scope = 'col';
+  el('grid-head').replaceChildren(corner, ...data.courts.map(court => {
+    const th = document.createElement('th');
+    th.scope = 'col';
+    th.textContent = court.name;
+    return th;
+  }));
+
+  el('grid-body').replaceChildren(...data.slots.map(slot => {
+    const row = document.createElement('tr');
+    row.dataset.time = slot.time;
+    const time = document.createElement('th');
+    time.scope = 'row';
+    time.textContent = slot.label;
+    row.append(time);
+    for (const court of data.courts) {
+      const cell = document.createElement('td');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'slot';
+      button.dataset.court = court.id;
+      button.dataset.courtName = court.name;
+      button.dataset.time = slot.time;
+      button.dataset.label = slot.label;
+      cell.append(button);
+      row.append(cell);
+    }
+    return row;
+  }));
+  gridKey = data.date;
+  wrap.scrollTop = 0;
+}
+
+// Cells are patched in place: rebuilding them every 3 seconds would swallow taps.
+function paintGrid(data) {
+  for (const slot of data.slots) {
+    const row = el('grid-body').querySelector(`tr[data-time="${slot.time}"]`);
+    row.classList.toggle('past-row', slot.past);
+    for (const button of row.querySelectorAll('.slot')) {
+      const name = data.booked[`${button.dataset.court}|${slot.time}`];
+      const status = slot.past ? 'past' : name ? 'booked' : 'free';
+      const text = name || (slot.past ? '–' : 'Free');
+      if (button.dataset.status === status && button.textContent === text) continue;
+      button.dataset.status = status;
+      button.className = 'slot ' + status;
+      button.textContent = text;
+      button.disabled = status !== 'free';
+      const state = status === 'free' ? 'free, tap to book' : status === 'booked' ? `booked by ${name}` : 'past';
+      button.setAttribute('aria-label', `${button.dataset.courtName}, ${slot.label}, ${state}`);
+    }
+  }
+}
+
+function scrollToNow(data) {
+  const next = data.slots.find(slot => !slot.past);
+  if (!next || next === data.slots[0]) return;
+  const row = el('grid-body').querySelector(`tr[data-time="${next.time}"]`);
+  wrap.scrollTop = row.offsetTop - el('grid-head').offsetHeight - 2;
+}
+
+function setLive(ok, text) {
+  el('live').classList.toggle('off', !ok);
+  el('live-text').textContent = text;
+}
+
+async function refresh() {
+  const id = ++requestId;
+  const url = '/api/slots' + (selectedDate ? '?date=' + encodeURIComponent(selectedDate) : '');
+  try {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (id !== requestId) return;
+    if (response.status === 400) {  // the chosen day rolled out of the window at midnight
+      selectedDate = null;
+      return;
+    }
+    if (!response.ok) {
+      setLive(false, response.status === 503 ? 'Server busy' : 'Reconnecting…');
+      return;
+    }
+    const data = await response.json();
+    if (id !== requestId) return;
+    selectedDate = data.date;
+    renderTabs(data);
+    const isNewGrid = gridKey !== data.date;
+    if (isNewGrid) buildGrid(data);
+    paintGrid(data);
+    if (isNewGrid) scrollToNow(data);
+    setLive(true, 'Live');
+  } catch (err) {
+    if (id === requestId) setLive(false, 'Reconnecting…');
+  }
+}
+
+async function pollLoop() {
+  clearTimeout(pollTimer);
+  if (!document.hidden) await refresh();
+  pollTimer = setTimeout(pollLoop, POLL_MS);
+}
+
+el('tabs').addEventListener('click', event => {
+  const tab = event.target.closest('.tab');
+  if (!tab || tab.dataset.date === selectedDate) return;
+  selectedDate = tab.dataset.date;
+  refresh();
+});
+
+el('grid-body').addEventListener('click', event => {
+  const button = event.target.closest('.slot.free');
+  if (!button) return;
+  picked = {
+    court_id: Number(button.dataset.court),
+    courtName: button.dataset.courtName,
+    date: selectedDate,
+    slot_time: button.dataset.time,
+    label: button.dataset.label,
+  };
+  const day = document.querySelector(`.tab[data-date="${selectedDate}"]`);
+  el('book-title').textContent = picked.courtName;
+  el('book-when').textContent = `${day.querySelector('b').textContent}, ${day.querySelector('small').textContent} · ${picked.label}`;
+  el('form-error').hidden = true;
+  dialog.showModal();
+  el('f-name').focus();
+});
+
+el('book-cancel').addEventListener('click', () => dialog.close());
+
+el('book-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const submit = el('book-submit');
+  submit.disabled = true;
+  el('form-error').hidden = true;
+  try {
+    const response = await fetch('/api/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        court_id: picked.court_id,
+        date: picked.date,
+        slot_time: picked.slot_time,
+        name: el('f-name').value,
+        reg_no: el('f-reg').value,
+      }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (response.ok) {
+      dialog.close();
+      showNotice(`Booked ${picked.courtName} at ${picked.label}.`, 'good');
+      refresh();
+    } else if (response.status === 409) {
+      dialog.close();
+      showNotice(body.error, 'bad');
+      refresh();
+    } else {
+      el('form-error').textContent = body.error || 'Booking failed – try again';
+      el('form-error').hidden = false;
+    }
+  } catch (err) {
+    el('form-error').textContent = 'No connection – check your network and try again';
+    el('form-error').hidden = false;
+  }
+  submit.disabled = false;
+});
+
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pollLoop(); });
+pollLoop();
+</script>
+{% endblock %}

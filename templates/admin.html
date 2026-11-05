@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Admin · CourtBook{% endblock %}
+{% block styles %}
+.meter { height: 8px; background: var(--free-tint); border-radius: 4px; overflow: hidden; margin-top: 5px; }
+.meter i { display: block; height: 100%; background: var(--free-deep); }
+.flow { display: grid; gap: 10px; }
+.phase { min-width: 0; }
+.phase h3 { font: 700 18px/1.1 var(--display); margin: 0 0 6px; }
+.phase h3 small { font: 400 13px/1 var(--body); color: var(--muted); }
+.box { max-height: 240px; overflow: auto; border: 1px solid var(--rule); border-radius: 6px; }
+.box thead th { position: sticky; top: 0; background: var(--card); }
+.box table.data { font-size: 14px; }
+.verdict { display: grid; gap: 8px; margin-bottom: 14px; }
+.verdict p { font: 700 22px/1.15 var(--display); }
+.verdict small { display: block; font: 400 14px/1.3 var(--body); color: var(--muted); }
+@media (min-width: 760px) {
+  .flow { grid-template-columns: 1fr 1.2fr 1fr; }
+  .verdict { grid-template-columns: 1fr 1fr; }
+}
+{% endblock %}
+{% block content %}
+<h1 class="page-title">Admin</h1>
+
+<div class="scores">
+  <div class="score"><b>{{ today_total }}</b><small>Bookings today</small></div>
+  <div class="score"><b>{{ slots_per_court }}</b><small>Slots per court, per day</small></div>
+</div>
+
+<section class="card">
+  <h2>Utilisation today</h2>
+  <table class="data">
+    <thead><tr><th>Court</th><th class="num">Booked</th><th class="num">Used</th></tr></thead>
+    <tbody>
+    {% for court in utilisation %}
+      <tr>
+        <td>{{ court.name }}<div class="meter"><i style="width: {{ court.percent }}%"></i></div></td>
+        <td class="num">{{ court.booked }}/{{ slots_per_court }}</td>
+        <td class="num">{{ court.percent }}%</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Peak hours and most popular court</h2>
+  {% if booking_count %}
+  <div class="verdict">
+    <p><small>Peak hour{{ 's' if peak_hours|length > 1 }}</small>{{ peak_hours|join(', ') }} · {{ peak_count }} booking{{ 's' if peak_count != 1 }}</p>
+    <p><small>Most popular court{{ 's' if top_courts|length > 1 }}</small>{{ top_courts|join(', ') }} · {{ top_count }} booking{{ 's' if top_count != 1 }}</p>
+  </div>
+  <p class="muted small" style="margin-bottom: 10px">MapReduce over all {{ booking_count }} stored booking{{ 's' if booking_count != 1 }}.</p>
+  <div class="flow">
+    <div class="phase">
+      <h3>Map <small>{{ pairs|length }} pairs emitted</small></h3>
+      <div class="box"><table class="data">
+        <thead><tr><th>Key</th><th class="num">Value</th></tr></thead>
+        <tbody>{% for key, value in pairs %}<tr><td>{{ key }}</td><td class="num">{{ value }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="phase">
+      <h3>Shuffle <small>{{ grouped|length }} keys</small></h3>
+      <div class="box"><table class="data">
+        <thead><tr><th>Key</th><th>Values</th></tr></thead>
+        <tbody>{% for key, values in grouped.items() %}<tr><td>{{ key }}</td><td>[{{ values|join(', ') }}]</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="phase">
+      <h3>Reduce <small>counts summed</small></h3>
+      <div class="box"><table class="data">
+        <thead><tr><th>Key</th><th class="num">Total</th></tr></thead>
+        <tbody>{% for key, total in final %}<tr><td>{{ key }}</td><td class="num">{{ total }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+  </div>
+  {% else %}
+  <p class="muted">No bookings yet. <a href="{{ url_for('home') }}">Book a court</a> and the report fills in here.</p>
+  {% endif %}
+</section>
+{% endblock %}

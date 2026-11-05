@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}SLA · CourtBook{% endblock %}
+{% block styles %}
+.sla-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.badge { font: 700 20px/1 var(--display); color: var(--line); padding: 9px 14px; border-radius: 6px; white-space: nowrap; }
+.badge.met { background: var(--free-deep); }
+.badge.violated { background: var(--danger); }
+.ticks { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 10px; }
+.ticks i { width: 10px; height: 20px; border-radius: 2px; background: var(--free); }
+.ticks i.fail { background: var(--danger); }
+{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="10">{% endblock %}
+{% block content %}
+<div class="sla-head">
+  <h1>Service levels</h1>
+  <span class="badge {{ 'met' if met else 'violated' }}">{{ 'SLA met' if met else 'SLA violated' }}</span>
+</div>
+<p class="muted small" style="margin: -8px 0 14px">
+  Met means availability of at least {{ sla_target }}% and a 95th-percentile response under {{ slo_ms }} ms.
+  Refreshes every 10 seconds. Counters reset when the app restarts (last start {{ started_at.strftime('%d %b, %H:%M') }}).
+</p>
+
+<div class="scores">
+  <div class="score"><b>{{ total }}</b><small>Total requests</small></div>
+  <div class="score"><b>{{ '%.1f'|format(avg_ms) }}</b><small>Average ms</small></div>
+  <div class="score"><b>{{ '%.1f'|format(p95_ms) }}</b><small>95th percentile ms</small></div>
+  <div class="score"><b>{{ '%.1f'|format(under_slo) }}%</b><small>Under {{ slo_ms }} ms</small></div>
+</div>
+{% if total > sample_size %}
+<p class="muted small" style="margin: -6px 0 14px">Timings cover the latest {{ sample_size }} requests.</p>
+{% endif %}
+
+<section class="card">
+  <h2>Availability</h2>
+  {% if availability is none %}
+  <p class="muted">The first health check runs a few seconds after startup, then every {{ interval }} seconds.</p>
+  {% else %}
+  <table class="data">
+    <tbody>
+      <tr><td>Availability</td><td class="num">{{ '%.3f'|format(availability) }}%</td></tr>
+      <tr><td>Health checks passed</td><td class="num">{{ checks_ok }}/{{ checks_total }}</td></tr>
+      <tr><td>Health checks failed</td><td class="num">{{ checks_failed }}</td></tr>
+      <tr><td>Last check</td><td class="num">{{ last_check[0].strftime('%H:%M:%S') }} · {{ 'passed' if last_check[1] else 'failed' }}</td></tr>
+    </tbody>
+  </table>
+  <div class="ticks" role="img" aria-label="Latest health checks, oldest first">
+    {% for _, ok in recent_checks %}<i{% if not ok %} class="fail"{% endif %}></i>{% endfor %}
+  </div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Allowed downtime at {{ sla_target }}%</h2>
+  <table class="data">
+    <tbody>
+      <tr><td>Per 30-day month</td><td class="num">{{ '%.1f'|format(allowed_month_min) }} min</td></tr>
+      <tr><td>Per day</td><td class="num">{{ '%.1f'|format(allowed_day_s) }} s</td></tr>
+      <tr><td>Since this app started</td><td class="num">{{ '%.1f'|format(budget_s) }} s</td></tr>
+      <tr><td>Downtime measured so far</td><td class="num">{{ downtime_s }} s</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Admission-control rejections</h2>
+  <table class="data">
+    <tbody>
+      <tr><td>Server busy (over {{ max_concurrent }} concurrent requests)</td><td class="num">{{ rejected.server_busy }}</td></tr>
+      <tr><td>Daily limit reached</td><td class="num">{{ rejected.daily_limit }}</td></tr>
+      <tr><td>Past slot</td><td class="num">{{ rejected.past_slot }}</td></tr>
+      <tr><td><b>Total</b></td><td class="num"><b>{{ rejected_total }}</b></td></tr>
+    </tbody>
+  </table>
+</section>
+{% endblock %}

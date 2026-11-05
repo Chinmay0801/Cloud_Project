@@ -1,0 +1,6 @@
+courtbook.db
+courtbook.db-journal
+__pycache__/
+.venv/
+venv/
+.vscode/
